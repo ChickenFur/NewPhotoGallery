@@ -1,7 +1,7 @@
 <script>
   import { fade, scale } from "svelte/transition";
   import { flip } from "svelte/animate";
-  import { onMount } from "svelte";
+  import { onMount, afterUpdate } from "svelte";
 
   // Get all image files from the photos directory
   const imageFiles = import.meta.glob("/src/assets/images/**/*", {
@@ -72,6 +72,17 @@
   }
 
   onMount(() => {
+    // Handle initial deep link if present
+    const hash = window.location.hash.slice(1); // Remove the # symbol
+    if (hash) {
+      const photoToShow = processedPhotos.find(
+        (photo) => photo.fileName.replace(/\.[^/.]+$/, "") === hash
+      );
+      if (photoToShow) {
+        handleOpenPhoto(photoToShow);
+      }
+    }
+
     // Preload min versions
     processedPhotos.forEach((group) => {
       preloadImage(group.min);
@@ -80,6 +91,10 @@
 
   async function handlePhotoClick(photoGroup) {
     selectedPhoto = photoGroup;
+    // Update URL with the photo filename (without extension)
+    const baseFileName = photoGroup.fileName.replace(/\.[^/.]+$/, "");
+    window.history.pushState(null, "", `#${baseFileName}`);
+
     // Preload full resolution image when photo is clicked
     if (!loadedImages.has(photoGroup.full)) {
       await preloadImage(photoGroup.full);
@@ -93,6 +108,8 @@
 
   function handleClosePhoto() {
     selectedPhoto = null;
+    // Remove the hash from the URL
+    window.history.pushState(null, "", window.location.pathname);
     // Wait for the transition to complete before restoring scroll position
     setTimeout(() => {
       window.scrollTo(0, scrollPosition);
