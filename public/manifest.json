@@ -1,0 +1,14 @@
+{
+  "name": "Bit By Bit Adventure",
+  "short_name": "BitByBit",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "32x32",
+      "type": "image/svg+xml"
+    }
+  ],
+  "theme_color": "#4A5568",
+  "background_color": "#ffffff",
+  "display": "standalone"
+} 

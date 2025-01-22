@@ -50,6 +50,9 @@
   let selectedPhoto = null;
   let loadedImages = new Set();
   let scrollPosition;
+  let currentHeaderImage = null;
+  let headerImages = [];
+  let headerImageTimer;
 
   function preloadImage(src) {
     return new Promise((resolve, reject) => {
@@ -71,6 +74,25 @@
     return photoGroup.min; // Always use min version as fallback
   }
 
+  // Function to get random image
+  function getRandomImage() {
+    if (headerImages.length === 0) return null;
+    const randomIndex = Math.floor(Math.random() * headerImages.length);
+    const image = headerImages[randomIndex];
+    // Preload the full resolution version
+    preloadImage(image.full);
+    return image;
+  }
+
+  // Function to update header image
+  function updateHeaderImage() {
+    let newImage;
+    do {
+      newImage = getRandomImage();
+    } while (newImage === currentHeaderImage && headerImages.length > 1);
+    currentHeaderImage = newImage;
+  }
+
   onMount(() => {
     // Handle initial deep link if present
     const hash = window.location.hash.slice(1); // Remove the # symbol
@@ -87,6 +109,25 @@
     processedPhotos.forEach((group) => {
       preloadImage(group.min);
     });
+
+    // Filter for landscape images (aspect ratio > 1.3)
+    headerImages = processedPhotos.filter((photo) => {
+      const img = new Image();
+      img.src = photo.min;
+      // Preload the full resolution version right away
+      preloadImage(photo.full);
+      return img.width / img.height > 1.3;
+    });
+
+    // Set initial image
+    updateHeaderImage();
+
+    // Start rotation timer
+    headerImageTimer = setInterval(updateHeaderImage, 7000); // Increased duration to allow for loading
+
+    return () => {
+      clearInterval(headerImageTimer);
+    };
   });
 
   async function handlePhotoClick(photoGroup) {
@@ -116,6 +157,24 @@
     }, 250);
   }
 </script>
+
+<div class="header">
+  {#if currentHeaderImage}
+    <div class="header-photo-container">
+      {#key currentHeaderImage}
+        <img
+          src={loadedImages.has(currentHeaderImage.full)
+            ? currentHeaderImage.full
+            : currentHeaderImage.min}
+          alt=""
+          class="header-photo"
+          in:fade={{ duration: 1000 }}
+          out:fade={{ duration: 1000 }}
+        />
+      {/key}
+    </div>
+  {/if}
+</div>
 
 <div class="gallery">
   {#if !selectedPhoto}
@@ -167,6 +226,47 @@
 </div>
 
 <style>
+  .header {
+    width: 100%;
+    position: relative;
+    margin-bottom: 2rem;
+  }
+
+  .mountain-logo {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 2;
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+  }
+
+  .header-image {
+    width: 100%;
+    height: auto;
+    max-height: 200px;
+  }
+
+  .header-photo-container {
+    width: 100%;
+    height: 50vh;
+    min-height: 400px;
+    max-height: 600px;
+    overflow: hidden;
+    position: relative;
+    background-color: #2d3748;
+  }
+
+  .header-photo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+  }
+
   .gallery {
     width: 100%;
     max-width: 1200px;
