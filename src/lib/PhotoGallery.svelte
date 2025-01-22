@@ -1,5 +1,5 @@
 <script>
-  import { fade, scale, crossfade } from "svelte/transition";
+  import { fade, scale } from "svelte/transition";
   import { flip } from "svelte/animate";
   import { onMount, afterUpdate } from "svelte";
 
@@ -53,13 +53,6 @@
   let currentHeaderImage = null;
   let headerImages = [];
   let headerImageTimer;
-
-  const [send, receive] = crossfade({
-    duration: (d) => d * 0.5,
-    fallback(node, params) {
-      return fade(node, { duration: 400 });
-    },
-  });
 
   function preloadImage(src) {
     return new Promise((resolve, reject) => {
@@ -169,19 +162,14 @@
   <div class="header-photo-container">
     {#if currentHeaderImage}
       {#key currentHeaderImage.full}
-        <div
-          class="photo-wrapper"
-          in:receive={{ key: currentHeaderImage.full }}
-          out:send={{ key: currentHeaderImage.full }}
-        >
-          <img
-            src={loadedImages.has(currentHeaderImage.full)
-              ? currentHeaderImage.full
-              : currentHeaderImage.min}
-            alt=""
-            class="header-photo"
-          />
-        </div>
+        <img
+          src={loadedImages.has(currentHeaderImage.full)
+            ? currentHeaderImage.full
+            : currentHeaderImage.min}
+          alt=""
+          class="header-photo"
+          in:fade={{ duration: 800 }}
+        />
       {/key}
       <div class="photo-overlay" />
     {/if}
@@ -256,20 +244,15 @@
     background-color: rgb(26, 26, 26);
   }
 
-  .photo-wrapper {
+  .header-photo {
     position: absolute;
     top: 0;
     left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 1;
-  }
-
-  .header-photo {
     width: 100%;
     height: 100%;
     object-fit: cover;
     object-position: center;
+    z-index: 1;
   }
 
   .photo-overlay {
