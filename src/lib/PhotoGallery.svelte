@@ -1,5 +1,5 @@
 <script>
-  import { fade, scale } from "svelte/transition";
+  import { fade, scale, crossfade } from "svelte/transition";
   import { flip } from "svelte/animate";
   import { onMount, afterUpdate } from "svelte";
 
@@ -53,6 +53,13 @@
   let currentHeaderImage = null;
   let headerImages = [];
   let headerImageTimer;
+
+  const [send, receive] = crossfade({
+    duration: (d) => d * 0.5,
+    fallback(node, params) {
+      return fade(node, { duration: 400 });
+    },
+  });
 
   function preloadImage(src) {
     return new Promise((resolve, reject) => {
@@ -159,22 +166,26 @@
 </script>
 
 <div class="header">
-  {#if currentHeaderImage}
-    <div class="header-photo-container">
-      {#key currentHeaderImage}
-        <img
-          src={loadedImages.has(currentHeaderImage.full)
-            ? currentHeaderImage.full
-            : currentHeaderImage.min}
-          alt=""
-          class="header-photo"
-          in:fade={{ duration: 1500 }}
-          out:fade={{ duration: 1500 }}
-        />
-        <div class="photo-overlay" />
+  <div class="header-photo-container">
+    {#if currentHeaderImage}
+      {#key currentHeaderImage.full}
+        <div
+          class="photo-wrapper"
+          in:receive={{ key: currentHeaderImage.full }}
+          out:send={{ key: currentHeaderImage.full }}
+        >
+          <img
+            src={loadedImages.has(currentHeaderImage.full)
+              ? currentHeaderImage.full
+              : currentHeaderImage.min}
+            alt=""
+            class="header-photo"
+          />
+        </div>
       {/key}
-    </div>
-  {/if}
+      <div class="photo-overlay" />
+    {/if}
+  </div>
 </div>
 
 <div class="gallery">
@@ -242,7 +253,23 @@
     max-height: 800px;
     overflow: hidden;
     position: relative;
-    background-color: var(--color-surface);
+    background-color: rgb(26, 26, 26);
+  }
+
+  .photo-wrapper {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1;
+  }
+
+  .header-photo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
   }
 
   .photo-overlay {
@@ -255,22 +282,10 @@
       to bottom,
       rgba(26, 26, 26, 0.4) 0%,
       rgba(26, 26, 26, 0.2) 50%,
-      rgba(26, 26, 26, 0.6) 100%
+      rgb(26, 26, 26) 100%
     );
     pointer-events: none;
-  }
-
-  .header-photo {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: center;
-    transform: scale(1.05);
-    transition: transform 8s ease-out;
-  }
-
-  .header-photo:hover {
-    transform: scale(1);
+    z-index: 2;
   }
 
   .gallery {
