@@ -168,9 +168,10 @@
             : currentHeaderImage.min}
           alt=""
           class="header-photo"
-          in:fade={{ duration: 1000 }}
-          out:fade={{ duration: 1000 }}
+          in:fade={{ duration: 1500 }}
+          out:fade={{ duration: 1500 }}
         />
+        <div class="photo-overlay" />
       {/key}
     </div>
   {/if}
@@ -198,7 +199,9 @@
                 transition:scale={{ duration: 300 }}
                 loading="lazy"
               />
-              <span class="sr-only">View {photoGroup.fileName}</span>
+              <div class="photo-hover-overlay">
+                <span class="view-text">View</span>
+              </div>
             </div>
           {/each}
         </div>
@@ -211,16 +214,16 @@
       on:keydown={(e) => e.key === "Escape" && handleClosePhoto()}
       role="button"
       tabindex="0"
-      transition:fade={{ duration: 200 }}
+      transition:fade={{ duration: 400 }}
     >
       <img
         src={loadedImages.has(selectedPhoto.full)
           ? selectedPhoto.full
           : selectedPhoto.min}
         alt=""
-        transition:scale={{ duration: 300 }}
+        transition:scale={{ duration: 400 }}
       />
-      <span class="sr-only">Close {selectedPhoto.fileName}</span>
+      <button class="close-button" on:click={handleClosePhoto}>×</button>
     </div>
   {/if}
 </div>
@@ -229,35 +232,32 @@
   .header {
     width: 100%;
     position: relative;
-    margin-bottom: 2rem;
-  }
-
-  .mountain-logo {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 2;
-    width: 100%;
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 2rem 1rem;
-  }
-
-  .header-image {
-    width: 100%;
-    height: auto;
-    max-height: 200px;
+    margin-bottom: 3rem;
   }
 
   .header-photo-container {
     width: 100%;
-    height: 50vh;
+    height: 70vh;
     min-height: 400px;
-    max-height: 600px;
+    max-height: 800px;
     overflow: hidden;
     position: relative;
-    background-color: #2d3748;
+    background-color: var(--color-surface);
+  }
+
+  .photo-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(
+      to bottom,
+      rgba(26, 26, 26, 0.4) 0%,
+      rgba(26, 26, 26, 0.2) 50%,
+      rgba(26, 26, 26, 0.6) 100%
+    );
+    pointer-events: none;
   }
 
   .header-photo {
@@ -265,50 +265,92 @@
     height: 100%;
     object-fit: cover;
     object-position: center;
+    transform: scale(1.05);
+    transition: transform 8s ease-out;
+  }
+
+  .header-photo:hover {
+    transform: scale(1);
   }
 
   .gallery {
     width: 100%;
-    max-width: 1200px;
+    max-width: 1400px;
     margin: 0 auto;
     padding: 1rem;
   }
 
   .folder-section {
-    margin-bottom: 2rem;
+    margin-bottom: 4rem;
+    opacity: 0;
+    animation: fadeIn 0.8s ease-out forwards;
   }
 
   .folder-section h2 {
-    margin: 1rem;
-    font-size: 1.5rem;
-    color: #333;
+    margin: 2rem 1rem;
+    font-size: 2rem;
+    color: var(--color-text);
+    font-weight: 600;
+    letter-spacing: -0.02em;
   }
 
   .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 1rem;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 2rem;
     padding: 1rem;
   }
 
   .photo-container {
-    aspect-ratio: 4/3;
+    aspect-ratio: 16/9;
     cursor: pointer;
     overflow: hidden;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    transition: transform 0.2s ease;
+    border-radius: 0;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
     position: relative;
+    background-color: var(--color-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .photo-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background-color: var(--color-bg);
   }
 
   .photo-container:hover {
-    transform: scale(1.02);
+    transform: translateY(-5px);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
   }
 
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+  .photo-hover-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .photo-container:hover .photo-hover-overlay {
+    opacity: 1;
+  }
+
+  .view-text {
+    color: white;
+    font-size: 1.2rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
   }
 
   .fullscreen {
@@ -317,30 +359,52 @@
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.9);
+    background: rgba(0, 0, 0, 0.95);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 1000;
-    cursor: pointer;
   }
 
   .fullscreen img {
-    max-width: 90%;
-    max-height: 90vh;
+    max-width: 95%;
+    max-height: 95vh;
     object-fit: contain;
-    border-radius: 4px;
+    border-radius: 8px;
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
   }
 
-  .sr-only {
+  .close-button {
     position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
+    top: 2rem;
+    right: 2rem;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: white;
+    font-size: 2rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+  }
+
+  .close-button:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: rotate(90deg);
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 </style>

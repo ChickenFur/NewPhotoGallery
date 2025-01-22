@@ -1,10 +1,17 @@
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  --color-bg: #1a1a1a;
+  --color-text: #e5e5e5;
+  --color-accent: #3498db;
+  --color-accent-dark: #2980b9;
+  --color-surface: #2d2d2d;
+  --color-surface-light: #363636;
+  
+  font-family: 'Montserrat', system-ui, -apple-system, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color-scheme: light dark;
-  background-color: #f5f5f5;
-  color: #213547;
+  color-scheme: dark;
+  background-color: var(--color-bg);
+  color: var(--color-text);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -15,9 +22,15 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  background: linear-gradient(to bottom, var(--color-bg), var(--color-surface));
 }
 
 #app {
   width: 100%;
   margin: 0 auto;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
