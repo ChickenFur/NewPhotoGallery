@@ -1,9 +1,9 @@
 <script>
-  import PhotoGallery from './lib/PhotoGallery.svelte';
+  import PhotoGallery from "./lib/PhotoGallery.svelte";
 </script>
 
 <main>
-  <h1>My Photo Gallery</h1>
+  <h1>BitByBit Adventure</h1>
   <PhotoGallery />
 </main>
 

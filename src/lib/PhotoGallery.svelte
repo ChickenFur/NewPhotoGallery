@@ -1,32 +1,55 @@
 <script>
-  import { fade, scale } from 'svelte/transition';
-  import { flip } from 'svelte/animate';
-  import { onMount } from 'svelte';
+  import { fade, scale } from "svelte/transition";
+  import { flip } from "svelte/animate";
+  import { onMount } from "svelte";
 
   // Get all image files from the photos directory
-  const imageFiles = import.meta.glob('/src/assets/photos/*', { 
+  const imageFiles = import.meta.glob("/src/assets/images/**/*", {
     eager: true,
-    query: '?url',
-    import: 'default'
+    query: "?url",
+    import: "default",
   });
-  
+
+  // List of supported image extensions
+  const supportedExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp"];
+
   // Process image files to create groups of related images
-  const photoGroups = Object.keys(imageFiles)
-    .filter(path => !path.includes('.min.') && !path.includes('.placeholder.'))
-    .map(path => {
-      const basePath = path.substring(0, path.lastIndexOf('.'));
-      const extension = path.substring(path.lastIndexOf('.'));
+  const processedPhotos = Object.keys(imageFiles)
+    .filter((path) => {
+      const extension = path.toLowerCase().substring(path.lastIndexOf("."));
+      return (
+        supportedExtensions.includes(extension) &&
+        !path.includes(".min.") &&
+        !path.includes(".placeholder.")
+      );
+    })
+    .map((path) => {
+      const basePath = path.substring(0, path.lastIndexOf("."));
+      const extension = path.substring(path.lastIndexOf("."));
+      const pathParts = path.split("/");
+      const folderName = pathParts[pathParts.length - 2] || "Uncategorized";
+
       return {
         full: imageFiles[path],
         min: imageFiles[`${basePath}.min${extension}`] || imageFiles[path],
-        placeholder: imageFiles[`${basePath}.placeholder${extension}`] || imageFiles[path],
-        fileName: path.split('/').pop()
+        fileName: pathParts.pop(),
+        folder: folderName,
       };
     })
-    .filter(group => group.min && group.placeholder); // Ensure all required versions exist
+    .filter((group) => group.min); // Only ensure min version exists
+
+  // Group photos by folder
+  const photoGroups = processedPhotos.reduce((groups, photo) => {
+    if (!groups[photo.folder]) {
+      groups[photo.folder] = [];
+    }
+    groups[photo.folder].push(photo);
+    return groups;
+  }, {});
 
   let selectedPhoto = null;
   let loadedImages = new Set();
+  let scrollPosition;
 
   function preloadImage(src) {
     return new Promise((resolve, reject) => {
@@ -45,12 +68,12 @@
     if (loadedImages.has(photoGroup.min)) {
       return photoGroup.min;
     }
-    return photoGroup.placeholder;
+    return photoGroup.min; // Always use min version as fallback
   }
 
   onMount(() => {
     // Preload min versions
-    photoGroups.forEach(group => {
+    processedPhotos.forEach((group) => {
       preloadImage(group.min);
     });
   });
@@ -62,41 +85,62 @@
       await preloadImage(photoGroup.full);
     }
   }
+
+  function handleOpenPhoto(photoGroup) {
+    scrollPosition = window.scrollY;
+    handlePhotoClick(photoGroup);
+  }
+
+  function handleClosePhoto() {
+    selectedPhoto = null;
+    // Wait for the transition to complete before restoring scroll position
+    setTimeout(() => {
+      window.scrollTo(0, scrollPosition);
+    }, 250);
+  }
 </script>
 
 <div class="gallery">
   {#if !selectedPhoto}
-    <div class="grid">
-      {#each photoGroups as photoGroup, i (photoGroup.full)}
-        <div
-          class="photo-container"
-          animate:flip={{ duration: 300 }}
-          on:click={() => handlePhotoClick(photoGroup)}
-          on:keydown={(e) => e.key === 'Enter' && handlePhotoClick(photoGroup)}
-          role="button"
-          tabindex="0"
-        >
-          <img
-            src={getDisplayImage(photoGroup)}
-            alt=""
-            transition:scale={{ duration: 300 }}
-            loading="lazy"
-          />
-          <span class="sr-only">View {photoGroup.fileName}</span>
+    {#each Object.entries(photoGroups) as [folderName, photos]}
+      <div class="folder-section">
+        <h2>{folderName}</h2>
+        <div class="grid">
+          {#each photos as photoGroup, i (photoGroup.full)}
+            <div
+              class="photo-container"
+              animate:flip={{ duration: 300 }}
+              on:click={() => handleOpenPhoto(photoGroup)}
+              on:keydown={(e) =>
+                e.key === "Enter" && handleOpenPhoto(photoGroup)}
+              role="button"
+              tabindex="0"
+            >
+              <img
+                src={getDisplayImage(photoGroup)}
+                alt=""
+                transition:scale={{ duration: 300 }}
+                loading="lazy"
+              />
+              <span class="sr-only">View {photoGroup.fileName}</span>
+            </div>
+          {/each}
         </div>
-      {/each}
-    </div>
+      </div>
+    {/each}
   {:else}
     <div
       class="fullscreen"
-      on:click={() => selectedPhoto = null}
-      on:keydown={(e) => e.key === 'Escape' && (selectedPhoto = null)}
+      on:click={handleClosePhoto}
+      on:keydown={(e) => e.key === "Escape" && handleClosePhoto()}
       role="button"
       tabindex="0"
       transition:fade={{ duration: 200 }}
     >
       <img
-        src={loadedImages.has(selectedPhoto.full) ? selectedPhoto.full : selectedPhoto.min}
+        src={loadedImages.has(selectedPhoto.full)
+          ? selectedPhoto.full
+          : selectedPhoto.min}
         alt=""
         transition:scale={{ duration: 300 }}
       />
@@ -111,6 +155,16 @@
     max-width: 1200px;
     margin: 0 auto;
     padding: 1rem;
+  }
+
+  .folder-section {
+    margin-bottom: 2rem;
+  }
+
+  .folder-section h2 {
+    margin: 1rem;
+    font-size: 1.5rem;
+    color: #333;
   }
 
   .grid {
