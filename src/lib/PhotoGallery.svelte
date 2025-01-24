@@ -122,18 +122,28 @@
     observerMap.set(photoGroup.full, observer);
   }
 
+  // Create a handler function for popstate events
+  function handlePopState() {
+    if (selectedPhoto) {
+      selectedPhoto = null;
+      setTimeout(() => {
+        window.scrollTo(0, scrollPosition);
+      }, 250);
+    }
+  }
+
   onMount(async () => {
     try {
       // Filter for landscape images
-      headerImages = processedPhotos; // Temporarily remove filter for testing
+      headerImages = processedPhotos;
 
       if (headerImages.length > 0) {
-        // Set initial header image
         await updateHeaderImage();
-
-        // Start rotation timer
         headerImageTimer = setInterval(updateHeaderImage, 7000);
       }
+
+      // Add popstate event listener
+      window.addEventListener("popstate", handlePopState);
     } catch (error) {
       console.error("Error in onMount:", error);
     }
@@ -153,6 +163,8 @@
       clearInterval(headerImageTimer);
       observerMap.forEach((observer) => observer.disconnect());
       observerMap.clear();
+      // Remove popstate event listener
+      window.removeEventListener("popstate", handlePopState);
     };
   });
 
@@ -189,9 +201,7 @@
 
   function handleClosePhoto() {
     selectedPhoto = null;
-    // Remove the hash from the URL
     window.history.pushState(null, "", window.location.pathname);
-    // Wait for the transition to complete before restoring scroll position
     setTimeout(() => {
       window.scrollTo(0, scrollPosition);
     }, 250);
@@ -216,38 +226,32 @@
 
 <div class="gallery">
   {#if !selectedPhoto}
-    {#each Object.entries(photoGroups) as [folderName, photos]}
-      <div class="folder-section">
-        <h2>{folderName}</h2>
-        <div class="grid">
-          {#each photos as photoGroup, i (photoGroup.full)}
-            <div
-              class="photo-container"
-              animate:flip={{ duration: 300 }}
-              on:click={() => handleOpenPhoto(photoGroup)}
-              on:keydown={(e) =>
-                e.key === "Enter" && handleOpenPhoto(photoGroup)}
-              role="button"
-              tabindex="0"
-              use:handlePhotoContainerMount={photoGroup}
-            >
-              {#if loadedImages.has(photoGroup.min)}
-                <img
-                  src={getDisplayImage(photoGroup)}
-                  alt=""
-                  transition:scale={{ duration: 300 }}
-                />
-              {:else}
-                <div class="photo-placeholder" />
-              {/if}
-              <div class="photo-hover-overlay">
-                <span class="view-text">View</span>
-              </div>
-            </div>
-          {/each}
+    <div class="grid">
+      {#each processedPhotos as photoGroup (photoGroup.full)}
+        <div
+          class="photo-container"
+          animate:flip={{ duration: 300 }}
+          on:click={() => handleOpenPhoto(photoGroup)}
+          on:keydown={(e) => e.key === "Enter" && handleOpenPhoto(photoGroup)}
+          role="button"
+          tabindex="0"
+          use:handlePhotoContainerMount={photoGroup}
+        >
+          {#if loadedImages.has(photoGroup.min)}
+            <img
+              src={getDisplayImage(photoGroup)}
+              alt=""
+              transition:scale={{ duration: 300 }}
+            />
+          {:else}
+            <div class="photo-placeholder" />
+          {/if}
+          <div class="photo-hover-overlay">
+            <span class="view-text">View</span>
+          </div>
         </div>
-      </div>
-    {/each}
+      {/each}
+    </div>
   {:else}
     <div
       class="fullscreen"
@@ -334,25 +338,13 @@
     padding: 1rem;
   }
 
-  .folder-section {
-    margin-bottom: 4rem;
-    opacity: 0;
-    animation: fadeIn 0.8s ease-out forwards;
-  }
-
-  .folder-section h2 {
-    margin: 2rem 1rem;
-    font-size: 2rem;
-    color: var(--color-text);
-    font-weight: 600;
-    letter-spacing: -0.02em;
-  }
-
   .grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
     gap: 2rem;
     padding: 1rem;
+    opacity: 0;
+    animation: fadeIn 0.8s ease-out forwards;
   }
 
   .photo-container {
