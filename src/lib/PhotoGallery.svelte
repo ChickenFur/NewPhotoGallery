@@ -53,8 +53,11 @@
   let currentHeaderImage = null;
   let headerImages = [];
   let headerImageTimer;
+  let observerMap = new Map(); // Track observers for cleanup
 
-  function preloadImage(src) {
+  async function preloadImage(src) {
+    if (loadedImages.has(src)) return;
+
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.onload = () => {
@@ -62,7 +65,10 @@
         loadedImages = loadedImages; // Trigger reactivity
         resolve();
       };
-      img.onerror = reject;
+      img.onerror = (e) => {
+        console.error("Failed to load image:", src, e);
+        reject(e);
+      };
       img.src = src;
     });
   }
@@ -74,28 +80,66 @@
     return photoGroup.min; // Always use min version as fallback
   }
 
-  // Function to get random image
+  // Simplified random image selection
   function getRandomImage() {
     if (headerImages.length === 0) return null;
     const randomIndex = Math.floor(Math.random() * headerImages.length);
-    const image = headerImages[randomIndex];
-    // Preload the full resolution version
-    preloadImage(image.full);
-    return image;
+    return headerImages[randomIndex];
   }
 
-  // Function to update header image
-  function updateHeaderImage() {
-    let newImage;
-    do {
-      newImage = getRandomImage();
-    } while (newImage === currentHeaderImage && headerImages.length > 1);
-    currentHeaderImage = newImage;
+  // Simplified header image update
+  async function updateHeaderImage() {
+    const newImage = getRandomImage();
+    if (!newImage) return;
+
+    try {
+      // Preload the min version first
+      await preloadImage(newImage.min);
+      currentHeaderImage = newImage;
+
+      // Start loading the full version in the background
+      preloadImage(newImage.full).catch(console.error);
+    } catch (error) {
+      console.error("Failed to update header image:", error);
+    }
   }
 
-  onMount(() => {
+  function createIntersectionObserver(photoGroup, container) {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            preloadImage(photoGroup.min);
+            observer.disconnect();
+            observerMap.delete(photoGroup.full);
+          }
+        });
+      },
+      { rootMargin: "50px" }
+    );
+
+    observer.observe(container);
+    observerMap.set(photoGroup.full, observer);
+  }
+
+  onMount(async () => {
+    try {
+      // Filter for landscape images
+      headerImages = processedPhotos; // Temporarily remove filter for testing
+
+      if (headerImages.length > 0) {
+        // Set initial header image
+        await updateHeaderImage();
+
+        // Start rotation timer
+        headerImageTimer = setInterval(updateHeaderImage, 7000);
+      }
+    } catch (error) {
+      console.error("Error in onMount:", error);
+    }
+
     // Handle initial deep link if present
-    const hash = window.location.hash.slice(1); // Remove the # symbol
+    const hash = window.location.hash.slice(1);
     if (hash) {
       const photoToShow = processedPhotos.find(
         (photo) => photo.fileName.replace(/\.[^/.]+$/, "") === hash
@@ -105,30 +149,26 @@
       }
     }
 
-    // Preload min versions
-    processedPhotos.forEach((group) => {
-      preloadImage(group.min);
-    });
-
-    // Filter for landscape images (aspect ratio > 1.3)
-    headerImages = processedPhotos.filter((photo) => {
-      const img = new Image();
-      img.src = photo.min;
-      // Preload the full resolution version right away
-      preloadImage(photo.full);
-      return img.width / img.height > 1.3;
-    });
-
-    // Set initial image
-    updateHeaderImage();
-
-    // Start rotation timer
-    headerImageTimer = setInterval(updateHeaderImage, 7000); // Increased duration to allow for loading
-
     return () => {
       clearInterval(headerImageTimer);
+      observerMap.forEach((observer) => observer.disconnect());
+      observerMap.clear();
     };
   });
+
+  function handlePhotoContainerMount(node, photoGroup) {
+    createIntersectionObserver(photoGroup, node);
+
+    return {
+      destroy() {
+        const observer = observerMap.get(photoGroup.full);
+        if (observer) {
+          observer.disconnect();
+          observerMap.delete(photoGroup.full);
+        }
+      },
+    };
+  }
 
   async function handlePhotoClick(photoGroup) {
     selectedPhoto = photoGroup;
@@ -163,9 +203,7 @@
     {#if currentHeaderImage}
       {#key currentHeaderImage.full}
         <img
-          src={loadedImages.has(currentHeaderImage.full)
-            ? currentHeaderImage.full
-            : currentHeaderImage.min}
+          src={currentHeaderImage.min}
           alt=""
           class="header-photo"
           in:fade={{ duration: 800 }}
@@ -191,13 +229,17 @@
                 e.key === "Enter" && handleOpenPhoto(photoGroup)}
               role="button"
               tabindex="0"
+              use:handlePhotoContainerMount={photoGroup}
             >
-              <img
-                src={getDisplayImage(photoGroup)}
-                alt=""
-                transition:scale={{ duration: 300 }}
-                loading="lazy"
-              />
+              {#if loadedImages.has(photoGroup.min)}
+                <img
+                  src={getDisplayImage(photoGroup)}
+                  alt=""
+                  transition:scale={{ duration: 300 }}
+                />
+              {:else}
+                <div class="photo-placeholder" />
+              {/if}
               <div class="photo-hover-overlay">
                 <span class="view-text">View</span>
               </div>
@@ -231,17 +273,31 @@
   .header {
     width: 100%;
     position: relative;
-    margin-bottom: 3rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    justify-content: center;
   }
 
   .header-photo-container {
-    width: 100%;
-    height: 70vh;
-    min-height: 400px;
-    max-height: 800px;
+    width: 60%;
+    height: auto;
+    min-height: 300px;
+    max-height: none;
     overflow: hidden;
     position: relative;
     background-color: rgb(26, 26, 26);
+    aspect-ratio: 16/9;
+  }
+
+  @media (max-width: 768px) {
+    .header-photo-container {
+      width: 100%;
+      min-height: 200px;
+    }
+
+    .header {
+      margin-bottom: 1rem;
+    }
   }
 
   .header-photo {
@@ -264,7 +320,7 @@
     background: linear-gradient(
       to bottom,
       rgba(26, 26, 26, 0.4) 0%,
-      rgba(26, 26, 26, 0.2) 50%,
+      rgba(26, 26, 26, 0.2) 90%,
       rgb(26, 26, 26) 100%
     );
     pointer-events: none;
@@ -403,6 +459,25 @@
     to {
       opacity: 1;
       transform: translateY(0);
+    }
+  }
+
+  .photo-placeholder {
+    width: 100%;
+    height: 100%;
+    background: var(--color-surface);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0% {
+      opacity: 0.6;
+    }
+    50% {
+      opacity: 0.8;
+    }
+    100% {
+      opacity: 0.6;
     }
   }
 </style>
