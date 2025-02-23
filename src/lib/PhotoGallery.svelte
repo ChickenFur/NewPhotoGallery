@@ -11,7 +11,15 @@
   });
 
   // List of supported image extensions
-  const supportedExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp"];
+  const supportedExtensions = [
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".gif",
+    ".webp",
+    ".heic",
+    ".HEIC",
+  ];
 
   // Process image files to create groups of related images
   const processedPhotos = Object.keys(imageFiles)
@@ -29,14 +37,17 @@
       const pathParts = path.split("/");
       const folderName = pathParts[pathParts.length - 2] || "Uncategorized";
 
+      // Try to find .min version, if not found use original
+      const minPath = `${basePath}.min${extension}`;
+      const minVersion = imageFiles[minPath] || imageFiles[path];
+
       return {
         full: imageFiles[path],
-        min: imageFiles[`${basePath}.min${extension}`] || imageFiles[path],
+        min: minVersion,
         fileName: pathParts.pop(),
         folder: folderName,
       };
-    })
-    .filter((group) => group.min); // Only ensure min version exists
+    });
 
   // Group photos by folder
   const photoGroups = processedPhotos.reduce((groups, photo) => {
@@ -226,32 +237,38 @@
 
 <div class="gallery">
   {#if !selectedPhoto}
-    <div class="grid">
-      {#each processedPhotos as photoGroup (photoGroup.full)}
-        <div
-          class="photo-container"
-          animate:flip={{ duration: 300 }}
-          on:click={() => handleOpenPhoto(photoGroup)}
-          on:keydown={(e) => e.key === "Enter" && handleOpenPhoto(photoGroup)}
-          role="button"
-          tabindex="0"
-          use:handlePhotoContainerMount={photoGroup}
-        >
-          {#if loadedImages.has(photoGroup.min)}
-            <img
-              src={getDisplayImage(photoGroup)}
-              alt=""
-              transition:scale={{ duration: 300 }}
-            />
-          {:else}
-            <div class="photo-placeholder" />
-          {/if}
-          <div class="photo-hover-overlay">
-            <span class="view-text">View</span>
-          </div>
+    {#each Object.entries(photoGroups) as [folderName, photos]}
+      <div class="folder-section" in:fade={{ duration: 800, delay: 200 }}>
+        <h2 class="folder-title">{folderName}</h2>
+        <div class="grid">
+          {#each photos as photoGroup (photoGroup.full)}
+            <div
+              class="photo-container"
+              animate:flip={{ duration: 300 }}
+              on:click={() => handleOpenPhoto(photoGroup)}
+              on:keydown={(e) =>
+                e.key === "Enter" && handleOpenPhoto(photoGroup)}
+              role="button"
+              tabindex="0"
+              use:handlePhotoContainerMount={photoGroup}
+            >
+              {#if loadedImages.has(photoGroup.min)}
+                <img
+                  src={getDisplayImage(photoGroup)}
+                  alt=""
+                  transition:scale={{ duration: 300 }}
+                />
+              {:else}
+                <div class="photo-placeholder" />
+              {/if}
+              <div class="photo-hover-overlay">
+                <span class="view-text">View</span>
+              </div>
+            </div>
+          {/each}
         </div>
-      {/each}
-    </div>
+      </div>
+    {/each}
   {:else}
     <div
       class="fullscreen"
@@ -338,6 +355,22 @@
     padding: 1rem;
   }
 
+  .folder-section {
+    margin-bottom: 4rem;
+  }
+
+  .folder-title {
+    font-size: 2rem;
+    font-weight: 300;
+    color: var(--color-text);
+    margin: 2rem 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--color-surface-light);
+    opacity: 0.8;
+    letter-spacing: 0.1em;
+    text-transform: capitalize;
+  }
+
   .grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
@@ -345,6 +378,7 @@
     padding: 1rem;
     opacity: 0;
     animation: fadeIn 0.8s ease-out forwards;
+    animation-delay: 0.3s;
   }
 
   .photo-container {
@@ -470,6 +504,18 @@
     }
     100% {
       opacity: 0.6;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .folder-title {
+      font-size: 1.5rem;
+      margin: 1.5rem 0.5rem;
+    }
+
+    .grid {
+      gap: 1rem;
+      padding: 0.5rem;
     }
   }
 </style>
